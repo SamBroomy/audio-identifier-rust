@@ -1,0 +1,11 @@
+*
+!*/
+# Allow .gitignore itself
+!.gitignore
+!Cargo.toml
+!src/
+!migrations/*.sql
+!**/*.rs
+!.env.template
+!justfile
+/target
