@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 use sqlx::{Row, SqlitePool, sqlite::SqlitePoolOptions};
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
-use crate::audio::Fingerprint;
+use crate::{SongInfo, audio::Fingerprint};
 
 pub async fn setup_database() -> Result<SqlitePool, sqlx::Error> {
     // Connect to SQLite database (creates it if it doesn't exist)
@@ -17,25 +17,22 @@ pub async fn setup_database() -> Result<SqlitePool, sqlx::Error> {
     Ok(pool)
 }
 
-pub async fn song_exists(
-    pool: &SqlitePool,
-    title: &str,
-    artist: &str,
-) -> Result<Option<i64>, sqlx::Error> {
+#[instrument(skip(pool))]
+pub async fn song_exists(pool: &SqlitePool, song: &SongInfo) -> Result<Option<i64>, sqlx::Error> {
     let result = sqlx::query!(
         "SELECT id FROM songs WHERE title = ? AND artist = ?",
-        title,
-        artist
+        song.title,
+        song.artist
     )
     .fetch_optional(pool)
     .await?;
     Ok(result.map(|row| row.id))
 }
 
+#[instrument(skip(pool, fingerprints))]
 pub async fn store_song_fingerprints(
     pool: &SqlitePool,
-    title: &str,
-    artist: &str,
+    song: &SongInfo,
     duration: f32,
     fingerprints: &[Fingerprint],
 ) -> Result<i64, sqlx::Error> {
@@ -44,29 +41,23 @@ pub async fn store_song_fingerprints(
 
     // Check if song exists
 
-    if let Some(song_id) = song_exists(pool, title, artist).await? {
+    if let Some(song_id) = song_exists(pool, song).await? {
         // Song already exists, return the ID
-        warn!(
-            "Song already exists: {} by {} | ID: {}",
-            title, artist, song_id
-        );
+        warn!("Song already exists: {}", song);
         return Ok(song_id);
     }
 
     // Insert the song
     let song_id = sqlx::query!(
-        "INSERT INTO songs (title, artist, duration) VALUES (?, ?, ?)",
-        title,
-        artist,
+        "INSERT INTO songs ( title, artist, duration) VALUES ( ?, ?, ?)",
+        song.title,
+        song.artist,
         duration
     )
     .execute(&mut *tx)
     .await?
     .last_insert_rowid();
-    info!(
-        "Inserted new song: {} by {} | ID: {}",
-        title, artist, song_id
-    );
+    info!("Inserted new song: {} ID: {}", song, song_id);
 
     // Insert fingerprints in batches
     for chunk in fingerprints.chunks(1000) {
@@ -102,6 +93,7 @@ pub async fn store_song_fingerprints(
     Ok(song_id)
 }
 
+#[instrument(skip(pool, fingerprints))]
 pub async fn find_similar_fingerprints(
     pool: &SqlitePool,
     fingerprints: &[Fingerprint],
