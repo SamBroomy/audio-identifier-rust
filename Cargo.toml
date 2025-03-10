@@ -10,7 +10,7 @@ dotenvy = "0.15"
 itertools = "0.14"
 num-complex = "0.4"
 reqwest = { version = "0.12", features = ["json"] }
-rodio = "0.20"
+rodio = { version = "0.20", features = ["symphonia-all"] }
 rust_decimal = { version = "1.36.0", features = ["maths"] }
 rust_decimal_macros = "1.36.0"
 rustfft = "6.2"

@@ -4,8 +4,11 @@ use audio::{constellation_points, generate_fingerprints, match_fingerprints};
 use itertools::Itertools;
 use rodio::{Decoder, Source};
 use sqlx::SqlitePool;
+use std::fs::File;
+use std::io::{BufReader, Write};
 use std::time::Duration;
-use std::{fmt::Display, io::Seek};
+
+use std::fmt::Display;
 use tracing::{info, instrument};
 
 mod audio;
@@ -44,17 +47,24 @@ async fn get_song(pool: &SqlitePool, song: &SongInfo) -> Result<i64> {
         return Ok(song_id);
     }
 
-    let mut buffer = youtube::get_audio_from_youtube(&song.to_string()).await?;
-    let file = std::fs::File::create(format!("data/{}.mp3", song))?;
+    let buffer = youtube::get_audio_from_youtube(&song.to_string())
+        .await?
+        .into_inner()
+        .into_inner();
+    info!("Downloaded audio for {}", song);
+
+    let file = std::fs::File::create(format!("data/{}.aac", song))?;
+    info!("Writing audio to file: {:?}", file);
     let mut writer = std::io::BufWriter::new(file);
-    std::io::copy(&mut buffer, &mut writer)?;
-    buffer.seek(std::io::SeekFrom::Start(0))?; // Reset the buffer to the start
 
-    let source = Decoder::new(buffer)?;
+    writer.write_all(buffer.as_slice())?;
+    writer.flush()?;
 
+    let buf = BufReader::new(File::open(format!("data/{}.aac", song))?);
 
+    let source = Decoder::new(buf)?;
 
-    let source = BandpassFilterMonoSource::downsample(buffer)?;
+    let source = BandpassFilterMonoSource::new(Box::new(source), 11025);
     let duration = source.total_duration().unwrap().as_secs_f32();
 
     let constellation_points = constellation_points(source);
@@ -91,8 +101,8 @@ async fn main() -> Result<()> {
     let buffer = youtube::get_audio_from_youtube(&song.to_string()).await?;
     let source = Box::new(
         Decoder::new(buffer)?
-            .take_duration(Duration::from_secs(25))
-            .skip_duration(Duration::from_secs(35)),
+            .skip_duration(Duration::from_secs(25))
+            .take_duration(Duration::from_secs(25)),
     );
 
     let source = BandpassFilterMonoSource::new(source, 11025);
@@ -102,6 +112,10 @@ async fn main() -> Result<()> {
     let fingerprints = generate_fingerprints(constellation_points);
 
     let potential_matches = find_similar_fingerprints(&pool, &fingerprints).await?;
+
+    info!("Found {} potential matches", potential_matches.len());
+
+    info!("Matching fingerprints... {:?}", potential_matches.keys());
 
     let results = match_fingerprints(&fingerprints, potential_matches);
 
