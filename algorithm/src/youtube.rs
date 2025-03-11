@@ -3,7 +3,6 @@ use rusty_ytdl::VideoOptions;
 use rusty_ytdl::search::{SearchResult, YouTube};
 use rusty_ytdl::{Video, VideoQuality, VideoSearchOptions};
 use std::io::{BufReader, Cursor};
-use std::path;
 use tracing::{debug, info};
 
 pub async fn get_audio_from_youtube(query: &str) -> Result<BufReader<Cursor<Vec<u8>>>> {

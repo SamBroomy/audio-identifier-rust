@@ -8,13 +8,13 @@ use std::{
 pub struct BandpassFilterMonoSource {
     source: Box<dyn Source<Item = i16>>,
     target_sample_rate: u32,
-    original_sample_rate: u32,
+    _original_sample_rate: u32,
     downsample_ratio: usize,
     channels: u16,
-    sample_counter: usize,
+    _sample_counter: usize,
     // Filter states
     x1: f32,
-    x2: f32, // Previous input values
+    _x2: f32, // Previous input values
     y1: f32,
     y2: f32, // Previous output values
     // Filter coefficients (calculated for bandpass between 20Hz-5kHz)
@@ -48,12 +48,12 @@ impl BandpassFilterMonoSource {
         BandpassFilterMonoSource {
             source,
             target_sample_rate,
-            original_sample_rate,
+            _original_sample_rate: original_sample_rate,
             downsample_ratio,
             channels,
-            sample_counter: 0,
+            _sample_counter: 0,
             x1: 0.0,
-            x2: 0.0,
+            _x2: 0.0,
             y1: 0.0,
             y2: 0.0,
             hp_coef,

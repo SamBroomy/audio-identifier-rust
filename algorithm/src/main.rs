@@ -4,11 +4,10 @@ use audio::{constellation_points, generate_fingerprints, match_fingerprints};
 use itertools::Itertools;
 use rodio::{Decoder, Source};
 use sqlx::SqlitePool;
+use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::time::Duration;
-
-use std::fmt::Display;
 use tracing::{info, instrument};
 
 mod audio;
@@ -60,11 +59,9 @@ async fn get_song(pool: &SqlitePool, song: &SongInfo) -> Result<i64> {
     writer.write_all(buffer.as_slice())?;
     writer.flush()?;
 
-    let buf = BufReader::new(File::open(format!("data/{}.aac", song))?);
+    let source = BufReader::new(File::open(format!("data/{}.aac", song))?);
 
-    let source = Decoder::new(buf)?;
-
-    let source = BandpassFilterMonoSource::new(Box::new(source), 11025);
+    let source = BandpassFilterMonoSource::downsample(source)?;
     let duration = source.total_duration().unwrap().as_secs_f32();
 
     let constellation_points = constellation_points(source);
@@ -123,8 +120,8 @@ async fn main() -> Result<()> {
     for result in &results {
         let song_info = song_infos.get(&result.song_id).unwrap();
         info!(
-            "Matched song {} by {} with confidence {:.2} at time offset {:.2}",
-            song_info.0, song_info.1, result.confidence, result.time_offset
+            "Matched song {} by {} with confidence {:.2} at time offset {:.2} with {} matches",
+            song_info.0, song_info.1, result.confidence, result.time_offset, result.matched_count
         );
     }
 
