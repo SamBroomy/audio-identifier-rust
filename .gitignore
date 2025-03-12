@@ -9,3 +9,5 @@
 !.env.template
 !justfile
 /target
+!.cargo/config.toml
+!.github/workflows/*.yml
