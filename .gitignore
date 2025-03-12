@@ -11,3 +11,7 @@
 /target
 !.cargo/config.toml
 !.github/workflows/*.yml
+!configuration.yml
+!**/*.sql
+!**/*.sh
+!rustfmt.toml
