@@ -1,25 +1,70 @@
-use server::configuration::get_configuration;
-use sqlx::{Connection, PgConnection};
+use secrecy::ExposeSecret;
+use server::{
+    configuration::{DatabaseSettings, get_configuration},
+    startup::create_connection_pool,
+    telemetry::init_subscriber,
+};
+use sqlx::{Connection, Executor, PgConnection, PgPool};
+use std::sync::LazyLock;
+use tracing::info;
+use uuid::Uuid;
+
+static TRACING: LazyLock<()> = LazyLock::new(|| {
+    init_subscriber();
+});
+
+pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    let mut connection =
+        PgConnection::connect(config.connection_string_without_db().expose_secret())
+            .await
+            .expect("Failed to connect to Postgres.");
+    connection
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .await
+        .expect("Failed to create database.");
+
+    let pool = create_connection_pool(config.connection_string().expose_secret())
+        .await
+        .expect("Failed to create connection pool.");
+
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to migrate the database.");
+
+    pool
+}
 
 /// Spin up an instance of our application
 /// and returns its address (i.e. http://localhost:XXXX)
-async fn spawn_app() -> String {
+async fn spawn_app() -> (String, PgPool) {
+    LazyLock::force(&TRACING);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("Failed to bind random port.");
+    info!(
+        "Listener bound to random port '{}'",
+        listener.local_addr().unwrap()
+    );
     let port = listener.local_addr().unwrap().port();
+    let mut configuration = get_configuration().expect("Failed to read configuration.");
+    configuration.database.database_name = Uuid::new_v4().to_string();
+    info!("Database name: {}", configuration.database.database_name);
+    let pool = configure_database(&configuration.database).await;
+    let app_pool = pool.clone();
+
     // Spawn the server in a background task
     tokio::spawn(async move {
-        server::startup::run(listener)
+        server::startup::run(listener, app_pool)
             .await
             .expect("Failed to run server.");
     });
-    format!("http://127.0.0.1:{}", port)
+    (format!("http://127.0.0.1:{}", port), pool)
 }
 
 #[tokio::test]
 async fn health_check_works() {
-    let address = spawn_app().await;
+    let (address, _) = spawn_app().await;
 
     let client = reqwest::Client::new();
 
@@ -35,11 +80,8 @@ async fn health_check_works() {
 
 #[tokio::test]
 async fn songs_returns_a_200_for_valid_form_data() {
-    let app_address = spawn_app().await;
-    let configuration = get_configuration().expect("Failed to read configuration.");
-    let mut connection = PgConnection::connect(&configuration.database.connection_string())
-        .await
-        .expect("Failed to connect to Postgres.");
+    let (app_address, pool) = spawn_app().await;
+
     let client = reqwest::Client::new();
 
     let body = "title=My%20Song&artist=Me";
@@ -53,8 +95,8 @@ async fn songs_returns_a_200_for_valid_form_data() {
 
     assert_eq!(response.status().as_u16(), 200);
 
-    let saved = sqlx::query!("SELECT title, artist FROM songs")
-        .fetch_one(&mut connection)
+    let saved = sqlx::query!("SELECT title, artist FROM songs",)
+        .fetch_one(&pool)
         .await
         .expect("Failed to fetch saved song.");
 
@@ -64,7 +106,7 @@ async fn songs_returns_a_200_for_valid_form_data() {
 
 #[tokio::test]
 async fn song_returns_a_422_when_data_is_missing() {
-    let app_address = spawn_app().await;
+    let (app_address, _) = spawn_app().await;
     let client = reqwest::Client::new();
     let test_cases = vec![
         ("title=My%20Song", "missing the artist"),

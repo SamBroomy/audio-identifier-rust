@@ -4,4 +4,4 @@ database:
   port: 5432
   username: "postgres"
   password: "password"
-  database_name: "shazam"
+  database_name: "audioIdentifier"

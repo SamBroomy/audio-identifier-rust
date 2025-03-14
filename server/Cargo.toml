@@ -11,23 +11,31 @@ name = "server"
 path = "src/main.rs"
 
 [dependencies]
-axum = "0.8"
-chrono = { version = "0.4.40", default-features = false, features = ["clock"] }
-config = { version = "0.15", default-features = false, features = ["yaml"] }
+axum = { version = "0.8", features = ["macros"] }
+chrono = { version = "0.4.40", features = ["clock"] }
+config = { version = "0.15", features = ["yaml"] }
 hyper = "1.6"
+rust_decimal = { version = "1.36.0", features = ["db-postgres"] }
+rust_decimal_macros = "1.36.0"
+secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 sqlx = { version = "0.8", features = [
-    "runtime-tokio-rustls",
+    "runtime-tokio",
+    "tls-rustls",
     "macros",
     "postgres",
     "uuid",
     "chrono",
     "migrate",
+    "rust_decimal",
+    "bigdecimal",
 ] }
 tokio = { version = "1.44.0", features = ["macros", "rt-multi-thread"] }
 tower = "0.5.2"
+tower-http = { version = "0.6.2", features = ["trace"] }
 tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+tracing-chrome = "0.7.2"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 uuid = { version = "1.15.1", features = ["v4"] }
 
 

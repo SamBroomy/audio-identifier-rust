@@ -5,7 +5,7 @@ superuser_pwd := "password"
 app_user := "app"
 app_user_pwd := "secret"
 app_db_name := "audioIdentifier"
-export database_url := "postgres://" + app_user + ":"  + app_user_pwd + "@localhost:" + db_port / app_db_name
+export DATABASE_URL := "postgres://" + app_user + ":"  + app_user_pwd + "@localhost:" + db_port / app_db_name
 
 
 
@@ -64,7 +64,9 @@ setup-db-user:
 setup-database: check-sqlx
     cd server && \
         sqlx database create && \
-        sqlx migrate run
+        sqlx migrate run && \
+        cargo sqlx prepare
+
 
 
 # Initialize the database (main entry point)
@@ -73,6 +75,9 @@ init_db: check-sqlx
 
     set -eo pipefail
 
+    # Export the DATABASE_URL to a .env file
+    echo "DATABASE_URL={{DATABASE_URL}}" > .env
+
 
     if [[ -z "${SKIP_DOCKER}" ]]; then
         just start-postgres
@@ -80,8 +85,6 @@ init_db: check-sqlx
     fi
     just setup-database
     echo >&2 "Postgres has been migrated, ready to go!"
-
-
 
 # Migrate the database without starting Docker
 migrate:
