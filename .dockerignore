@@ -1,0 +1,12 @@
+# Ignore everything
+*
+!*/
+
+# Selectively include what you need
+!Cargo.toml
+!Cargo.lock
+!src/
+!migrations/*.sql
+!configuration/*.yml
+!.cargo/config.toml
+!.sqlx/

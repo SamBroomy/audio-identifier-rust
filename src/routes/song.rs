@@ -11,20 +11,17 @@ pub struct Song {
     artist: String,
 }
 
-#[instrument(name = "Adding a new song", skip(pool, song), fields(request_id = %Uuid::new_v4(),title = %song.title, artist = %song.artist))]
+#[instrument(name = "Adding a new song", skip(pool, song), fields(title = %song.title, artist = %song.artist))]
 pub async fn song(State(pool): State<PgPool>, Form(song): Form<Song>) -> impl IntoResponse {
     info!("Adding new song '{}' by '{}'", song.title, song.artist);
 
     match insert_subscriber(&pool, song).await {
         Ok(_) => StatusCode::OK,
-        Err(e) => {
-            error!("Failed to insert song into database: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
-#[instrument(name = "Adding a new song", skip(pool, title, artist))]
+#[instrument(name = "Adding a new song to database", skip(pool, title, artist))]
 async fn insert_subscriber(pool: &PgPool, Song { title, artist }: Song) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
@@ -39,6 +36,10 @@ async fn insert_subscriber(pool: &PgPool, Song { title, artist }: Song) -> Resul
         //rust_decimal::Decimal::ZERO,
     )
     .execute(pool)
-    .await?;
+    .await
+    .map_err(|e| {
+        error!("Failed to execute query: {:?}", e);
+        e
+    })?;
     Ok(())
 }

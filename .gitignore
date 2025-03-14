@@ -8,11 +8,14 @@
 !**/*.rs
 !.env.template
 !justfile
+!configuration/*.yml
 /target
 !.cargo/config.toml
 !.github/workflows/*.yml
-!configuration.yml
 !**/*.sql
 !**/*.sh
 !rustfmt.toml
 !.pre-commit-config.yaml
+!Dockerfile
+!.dockerignore
+!.sqlx/*.json

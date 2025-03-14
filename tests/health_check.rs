@@ -1,7 +1,6 @@
-use secrecy::ExposeSecret;
+use secrecy::SecretString;
 use server::{
-    configuration::{DatabaseSettings, get_configuration},
-    startup::create_connection_pool,
+    configuration::{DatabaseSettings, Settings},
     telemetry::init_subscriber,
 };
 use sqlx::{Connection, Executor, PgConnection, PgPool};
@@ -14,25 +13,31 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
 });
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    let mut connection =
-        PgConnection::connect(config.connection_string_without_db().expose_secret())
-            .await
-            .expect("Failed to connect to Postgres.");
+    let maintenance_settings = DatabaseSettings {
+        database_name: "postgres".to_string(),
+        username: "postgres".to_string(),
+        password: SecretString::from("password"),
+        ..(config.clone())
+    };
+    let mut connection = PgConnection::connect_with(&maintenance_settings.connect_options())
+        .await
+        .expect("Failed to connect to Postgres");
+
     connection
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("Failed to create database.");
 
-    let pool = create_connection_pool(config.connection_string().expose_secret())
+    let connection_pool = PgPool::connect_with(config.connect_options())
         .await
-        .expect("Failed to create connection pool.");
+        .expect("Failed to connect to Postgres.");
 
     sqlx::migrate!("./migrations")
-        .run(&pool)
+        .run(&connection_pool)
         .await
-        .expect("Failed to migrate the database.");
+        .expect("Failed to migrate the database");
 
-    pool
+    connection_pool
 }
 
 /// Spin up an instance of our application
@@ -47,7 +52,7 @@ async fn spawn_app() -> (String, PgPool) {
         listener.local_addr().unwrap()
     );
     let port = listener.local_addr().unwrap().port();
-    let mut configuration = get_configuration().expect("Failed to read configuration.");
+    let mut configuration = Settings::new().expect("Failed to read configuration.");
     configuration.database.database_name = Uuid::new_v4().to_string();
     info!("Database name: {}", configuration.database.database_name);
     let pool = configure_database(&configuration.database).await;

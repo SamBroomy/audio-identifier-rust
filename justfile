@@ -8,8 +8,17 @@ app_user_pwd := "secret"
 app_db_name := "audioIdentifier"
 export DATABASE_URL := "postgres://" + app_user + ":" + app_user_pwd + "@localhost:" + db_port / app_db_name
 
-bootstrap: init_db
-    # Rust pre-commit alternative
+bootstrap: install-pre-commit init_db
+
+install-pre-commit:
+    #!/usr/bin/env sh
+
+    if ! command -v prefligit &> /dev/null; then
+        echo "Installing prefligit..."
+        cargo install --locked --git https://github.com/j178/prefligit
+    else
+        echo "prefligit is already installed"
+    fi
     prefligit install
     prefligit run --all-files
 
@@ -66,10 +75,9 @@ setup-db-user:
 
 # Create database and run migrations
 setup-database: check-sqlx
-    cd server && \
-        sqlx database create && \
-        sqlx migrate run && \
-        cargo sqlx prepare
+    sqlx database create
+    sqlx migrate run
+    cargo sqlx prepare
 
 # Initialize the database (main entry point)
 init_db: check-sqlx
@@ -109,3 +117,14 @@ migrate_old:
 
 quick_dev:
     bacon run -- -q --example quick_dev
+
+bacon:
+    bacon run-long
+
+health_check:
+    curl http://127.0.0.1:8000/health_check -v
+
+songs:
+    curl --request POST \
+    --data 'title=My%20Song&artist=Me' \
+    127.0.0.1:8000/song --verbose
