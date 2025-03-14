@@ -1,7 +1,8 @@
 use anyhow::Result;
-use rusty_ytdl::VideoOptions;
-use rusty_ytdl::search::{SearchResult, YouTube};
-use rusty_ytdl::{Video, VideoQuality, VideoSearchOptions};
+use rusty_ytdl::{
+    Video, VideoOptions, VideoQuality, VideoSearchOptions,
+    search::{SearchResult, YouTube},
+};
 use std::io::{BufReader, Cursor};
 use tracing::{debug, info};
 

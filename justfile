@@ -1,13 +1,17 @@
 # Database configuration
+
 db_port := "5432"
 superuser := "postgres"
 superuser_pwd := "password"
 app_user := "app"
 app_user_pwd := "secret"
 app_db_name := "audioIdentifier"
-export DATABASE_URL := "postgres://" + app_user + ":"  + app_user_pwd + "@localhost:" + db_port / app_db_name
+export DATABASE_URL := "postgres://" + app_user + ":" + app_user_pwd + "@localhost:" + db_port / app_db_name
 
-
+bootstrap: init_db
+    # Rust pre-commit alternative
+    prefligit install
+    prefligit run --all-files
 
 # Check if sqlx is installed
 check-sqlx:
@@ -34,13 +38,13 @@ start-postgres: check-postgres-running
     #!/usr/bin/env sh
     CONTAINER_NAME="postgres_$(date '+%s')"
     docker run \
-        --env POSTGRES_USER={{superuser}} \
-        --env POSTGRES_PASSWORD={{superuser_pwd}} \
-        --health-cmd="pg_isready -U {{superuser}} || exit 1" \
+        --env POSTGRES_USER={{ superuser }} \
+        --env POSTGRES_PASSWORD={{ superuser_pwd }} \
+        --health-cmd="pg_isready -U {{ superuser }} || exit 1" \
         --health-interval=1s \
         --health-timeout=5s \
         --health-retries=5 \
-        --publish {{db_port}}:5432 \
+        --publish {{ db_port }}:5432 \
         --detach \
         --name "${CONTAINER_NAME}" \
         postgres -N 1000
@@ -57,8 +61,8 @@ start-postgres: check-postgres-running
 setup-db-user:
     #!/usr/bin/env sh
     CONTAINER=$(cat .postgres-container-id)
-    docker exec -it "${CONTAINER}" psql -U {{superuser}} -c "CREATE USER {{app_user}} WITH PASSWORD '{{app_user_pwd}}';"
-    docker exec -it "${CONTAINER}" psql -U {{superuser}} -c "ALTER USER {{app_user}} CREATEDB;"
+    docker exec -it "${CONTAINER}" psql -U {{ superuser }} -c "CREATE USER {{ app_user }} WITH PASSWORD '{{ app_user_pwd }}';"
+    docker exec -it "${CONTAINER}" psql -U {{ superuser }} -c "ALTER USER {{ app_user }} CREATEDB;"
 
 # Create database and run migrations
 setup-database: check-sqlx
@@ -67,8 +71,6 @@ setup-database: check-sqlx
         sqlx migrate run && \
         cargo sqlx prepare
 
-
-
 # Initialize the database (main entry point)
 init_db: check-sqlx
     #!/usr/bin/env sh
@@ -76,7 +78,7 @@ init_db: check-sqlx
     set -eo pipefail
 
     # Export the DATABASE_URL to a .env file
-    echo "DATABASE_URL={{DATABASE_URL}}" > .env
+    echo "DATABASE_URL={{ DATABASE_URL }}" > .env
 
 
     if [[ -z "${SKIP_DOCKER}" ]]; then
@@ -99,8 +101,6 @@ stop_db:
     else
         docker stop $(docker ps --filter 'name=postgres' --format '{{{{.ID}}')
     fi
-
-
 
 migrate_old:
     sqlx database drop -y

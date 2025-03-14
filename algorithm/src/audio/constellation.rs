@@ -1,15 +1,16 @@
-pub use super::BandpassFilterMonoSource;
 use itertools::Itertools;
 use num_complex::Complex;
 use rodio::Source;
-use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::{Decimal, MathematicalOps};
+use rust_decimal::{Decimal, MathematicalOps, prelude::ToPrimitive};
 use rust_decimal_macros::dec;
-use rustfft::FftPlanner;
-use rustfft::num_traits::FromPrimitive;
-use std::collections::{BTreeMap, VecDeque};
-use std::sync::Arc;
+use rustfft::{FftPlanner, num_traits::FromPrimitive};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    sync::Arc,
+};
 use tracing::info;
+
+pub use super::BandpassFilterMonoSource;
 
 #[derive(Debug, Clone)]
 pub struct ConstellationPoint {

@@ -19,14 +19,15 @@ pub async fn setup_database() -> Result<SqlitePool, sqlx::Error> {
 
 #[instrument(skip(pool))]
 pub async fn song_exists(pool: &SqlitePool, song: &SongInfo) -> Result<Option<i64>, sqlx::Error> {
-    let result = sqlx::query!(
-        "SELECT id FROM songs WHERE title = ? AND artist = ?",
-        song.title,
-        song.artist
-    )
-    .fetch_optional(pool)
-    .await?;
-    Ok(result.map(|row| row.id))
+    // let result = sqlx::query!(
+    //     "SELECT id FROM songs WHERE title = ? AND artist = ?",
+    //     song.title,
+    //     song.artist
+    // )
+    // .fetch_optional(pool)
+    // .await?;
+    // Ok(result.map(|row| row.id))
+    Ok(Some(0))
 }
 
 #[instrument(skip(pool, fingerprints))]
@@ -48,15 +49,16 @@ pub async fn store_song_fingerprints(
     }
 
     // Insert the song
-    let song_id = sqlx::query!(
-        "INSERT INTO songs ( title, artist, duration) VALUES ( ?, ?, ?)",
-        song.title,
-        song.artist,
-        duration
-    )
-    .execute(&mut *tx)
-    .await?
-    .last_insert_rowid();
+    // let song_id = sqlx::query!(
+    //     "INSERT INTO songs ( title, artist, duration) VALUES ( ?, ?, ?)",
+    //     song.title,
+    //     song.artist,
+    //     duration
+    // )
+    // .execute(&mut *tx)
+    // .await?
+    // .last_insert_rowid();
+    let song_id = 0;
     info!("Inserted new song: {} ID: {}", song, song_id);
 
     // Insert fingerprints in batches

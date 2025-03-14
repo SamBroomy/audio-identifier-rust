@@ -1,19 +1,21 @@
-use crate::audio::BandpassFilterMonoSource;
 use anyhow::Result;
 use audio::{constellation_points, generate_fingerprints, match_fingerprints};
 use itertools::Itertools;
 use rodio::{Decoder, Source};
 use sqlx::SqlitePool;
-use std::fmt::Display;
-use std::fs::File;
-use std::io::{BufReader, Write};
-use std::time::Duration;
+use std::{
+    fmt::Display,
+    fs::File,
+    io::{BufReader, Write},
+    time::Duration,
+};
 use tracing::{info, instrument};
 
 mod audio;
 mod model;
 mod youtube;
 
+use audio::BandpassFilterMonoSource;
 use model::{
     find_similar_fingerprints, get_song_info, setup_database, song_exists, store_song_fingerprints,
 };
