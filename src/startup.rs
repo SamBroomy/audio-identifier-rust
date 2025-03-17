@@ -15,7 +15,7 @@ use tracing::{debug, error, info_span};
 
 use crate::{
     configuration::DatabaseSettings,
-    routes::{health_check, song},
+    routes::{health_check, song, subscribe},
 };
 
 const REQUEST_ID_HEADER: &str = "x-request-id";
@@ -52,6 +52,7 @@ pub async fn run(listener: TcpListener, connection: PgPool) -> Result<(), std::i
     let app = Router::new()
         .route("/health_check", get(health_check))
         .route("/song", post(song))
+        .route("/subscriptions", post(subscribe))
         .with_state(connection)
         .layer(middleware);
 

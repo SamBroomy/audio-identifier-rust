@@ -15,14 +15,14 @@ pub struct Song {
 pub async fn song(State(pool): State<PgPool>, Form(song): Form<Song>) -> impl IntoResponse {
     info!("Adding new song '{}' by '{}'", song.title, song.artist);
 
-    match insert_subscriber(&pool, song).await {
+    match insert_song(&pool, song).await {
         Ok(_) => StatusCode::OK,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
 #[instrument(name = "Adding a new song to database", skip(pool, title, artist))]
-async fn insert_subscriber(pool: &PgPool, Song { title, artist }: Song) -> Result<(), sqlx::Error> {
+async fn insert_song(pool: &PgPool, Song { title, artist }: Song) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         INSERT INTO songs (id, title, artist, album, duration)
