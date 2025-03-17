@@ -23,6 +23,7 @@ repos:
         stages: [pre-commit]
       - id: trailing-whitespace
         stages: [pre-commit]
+
   - repo: local
     hooks:
       # Rust hooks
@@ -51,3 +52,12 @@ repos:
         files: ^justfile$
         stages: [pre-commit]
         pass_filenames: false
+
+      # Docker hooks
+      - id: docker-build-check
+        name: Docker buildx check
+        description: Check Dockerfile with Docker BuildX
+        entry: bash -c 'docker buildx build --check -f "$1" $(dirname "$1") || exit 1' --
+        language: system
+        files: Dockerfile$|\.dockerfile$
+        stages: [pre-commit]

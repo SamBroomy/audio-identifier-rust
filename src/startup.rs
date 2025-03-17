@@ -3,64 +3,124 @@ use axum::{
     http::{HeaderName, Request},
     routing::{get, post},
 };
-
-use sqlx::{PgPool, postgres::PgPoolOptions};
-use tokio::net::TcpListener;
+use sqlx::PgPool;
+use std::time::Duration;
+use tokio::{net::TcpListener, signal};
 use tower::ServiceBuilder;
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
+    timeout::TimeoutLayer,
     trace::TraceLayer,
 };
-use tracing::{debug, error, info_span};
+use tracing::{debug, error, info, info_span, instrument};
 
 use crate::{
-    configuration::DatabaseSettings,
+    configuration::Settings,
+    email_client::EmailClient,
     routes::{health_check, song, subscribe},
 };
 
 const REQUEST_ID_HEADER: &str = "x-request-id";
 
-pub async fn run(listener: TcpListener, connection: PgPool) -> Result<(), std::io::Error> {
-    debug!("listening on {}", listener.local_addr().unwrap());
-
-    let x_request_id = HeaderName::from_static(REQUEST_ID_HEADER);
-    let middleware = ServiceBuilder::new()
-        .layer(SetRequestIdLayer::new(
-            x_request_id.clone(),
-            MakeRequestUuid,
-        ))
-        .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
-                // Log the request id as generated.
-                let request_id = request.headers().get(REQUEST_ID_HEADER);
-
-                match request_id {
-                    Some(request_id) => info_span!(
-                        "http_request",
-                        request_id = ?request_id,
-                    ),
-                    None => {
-                        error!("could not extract request_id");
-                        info_span!("http_request")
-                    }
-                }
-            }),
-        )
-        // send headers from request to response headers
-        .layer(PropagateRequestIdLayer::new(x_request_id));
-
-    let app = Router::new()
-        .route("/health_check", get(health_check))
-        .route("/song", post(song))
-        .route("/subscriptions", post(subscribe))
-        .with_state(connection)
-        .layer(middleware);
-
-    axum::serve(listener, app).await
+pub struct Application {
+    listener: TcpListener,
+    pub app: Router,
 }
 
-pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
-    PgPoolOptions::new()
-        .acquire_timeout(std::time::Duration::from_secs(2))
-        .connect_lazy_with(configuration.connect_options())
+impl Application {
+    #[instrument(name = "Building Application", skip_all)]
+    pub async fn build(
+        Settings {
+            database_cfg,
+            application_cfg,
+            email_client_cfg,
+        }: Settings,
+    ) -> Result<Self, std::io::Error> {
+        info!("Building application.");
+        debug!("Database configuration: {:?}", database_cfg);
+        let connection_pool = database_cfg.get_pg_pool();
+        debug!("Email client configuration: {:?}", email_client_cfg);
+        let sender_email = EmailClient::try_from(email_client_cfg).expect("Invalid config");
+
+        let listener = application_cfg.listener().await?;
+        debug!(
+            "Listener bound to port: {}",
+            listener.local_addr().unwrap().port()
+        );
+
+        let app = Self::get_router(connection_pool, sender_email).await;
+
+        Ok(Self { listener, app })
+    }
+
+    pub fn port(&self) -> u16 {
+        self.listener.local_addr().unwrap().port()
+    }
+
+    pub async fn get_router(connection: PgPool, email_client: EmailClient) -> axum::Router {
+        let x_request_id = HeaderName::from_static(REQUEST_ID_HEADER);
+        let middleware = ServiceBuilder::new()
+            .layer(SetRequestIdLayer::new(
+                x_request_id.clone(),
+                MakeRequestUuid,
+            ))
+            .layer(
+                TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
+                    // Log the request id as generated.
+                    let request_id = request.headers().get(REQUEST_ID_HEADER);
+
+                    match request_id {
+                        Some(request_id) => info_span!(
+                            "http_request",
+                            request_id = ?request_id,
+                        ),
+                        None => {
+                            error!("could not extract request_id");
+                            info_span!("http_request")
+                        }
+                    }
+                }),
+            )
+            // send headers from request to response headers
+            .layer(PropagateRequestIdLayer::new(x_request_id));
+
+        Router::new()
+            .route("/health_check", get(health_check))
+            .route("/songs", post(song))
+            .route("/subscriptions", post(subscribe))
+            .with_state(connection)
+            .with_state(email_client)
+            .layer(middleware)
+            .layer(TimeoutLayer::new(Duration::from_secs(5)))
+    }
+    pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
+        let Application { listener, app } = self;
+        axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown_signal())
+            .await
+    }
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }

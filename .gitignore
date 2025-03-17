@@ -18,4 +18,5 @@
 !.pre-commit-config.yaml
 !Dockerfile
 !.dockerignore
+!docker-compose.yml
 !.sqlx/*.json

@@ -18,7 +18,7 @@ install-pre-commit:
 
 start-postgres:
     #!/usr/bin/env sh
-    docker-compose up postgres -d
+    docker compose up postgres -d
 
     CONTAINER_NAME=$(docker ps --filter 'name=postgres' --format '{{{{.ID}}')
     # Wait for container to be healthy
@@ -44,15 +44,17 @@ setup-database: check-sqlx
 db_run: start-postgres
 
 dev: db_run
-    docker-compose up -d --build
+    docker compose up -d --build
 
 down:
-    docker-compose down
+    docker compose down
 
-restart: down dev
+restart:
+    docker compose build app
+    docker compose up -d app
 
 down-v:
-    docker-compose down -v
+    docker compose down -v
 
 restart-v: down-v dev
 

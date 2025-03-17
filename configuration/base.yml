@@ -8,3 +8,8 @@ database:
   password: "password"
   database_name: "audioIdentifier"
   require_ssl: true
+email_client:
+  base_url: "http://localhost"
+  sender_email: "test@gmail.com"
+  authorization_token: "my-secret-token"
+  timeout_ms: 10000

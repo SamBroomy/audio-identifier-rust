@@ -3,7 +3,7 @@ use chrono::Utc;
 use hyper::StatusCode;
 use serde::Deserialize;
 use sqlx::PgPool;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
 
 use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
@@ -34,7 +34,7 @@ pub async fn subscribe(
     let new_subscriber = match sub.try_into() {
         Ok(sub) => sub,
         Err(e) => {
-            error!("Failed to parse subscriber data: {:?}", e);
+            warn!("Failed to parse subscriber data: {:?}", e);
             return StatusCode::BAD_REQUEST;
         }
     };

@@ -1,12 +1,26 @@
 use config::Config;
+use reqwest::Url;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
-use sqlx::postgres::{PgConnectOptions, PgSslMode};
-#[derive(Deserialize, Debug)]
+use serde_with::{DurationMilliSeconds, serde_as};
+use sqlx::{
+    PgPool,
+    postgres::{PgConnectOptions, PgPoolOptions, PgSslMode},
+};
+use std::time::Duration;
+use tokio::net::TcpListener;
+
+use crate::domain::SubscriberEmail;
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct Settings {
-    pub database: DatabaseSettings,
-    pub application: ApplicationSettings,
+    #[serde(rename = "database")]
+    pub database_cfg: DatabaseSettings,
+    #[serde(rename = "application")]
+    pub application_cfg: ApplicationSettings,
+    #[serde(rename = "email_client")]
+    pub email_client_cfg: EmailClientSettings,
 }
 
 impl Settings {
@@ -76,13 +90,39 @@ impl DatabaseSettings {
             .port(self.port)
             .ssl_mode(ssl_mode)
     }
+
+    pub fn get_pg_pool(&self) -> PgPool {
+        PgPoolOptions::new()
+            .acquire_timeout(std::time::Duration::from_secs(2))
+            .connect_lazy_with(self.connect_options())
+    }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
+}
+
+impl ApplicationSettings {
+    pub fn address(&self) -> String {
+        format!("{}:{}", self.host, self.port)
+    }
+    pub async fn listener(&self) -> Result<TcpListener, std::io::Error> {
+        TcpListener::bind(self.address()).await
+    }
+}
+#[serde_as]
+#[derive(Deserialize, Debug, Clone)]
+pub struct EmailClientSettings {
+    #[serde(deserialize_with = "url_format::deserialize")]
+    pub base_url: Url,
+    #[serde(deserialize_with = "subscriber_email_format::deserialize")]
+    pub sender_email: SubscriberEmail,
+    pub authorization_token: SecretString,
+    #[serde_as(as = "DurationMilliSeconds<u64>")]
+    pub timeout_ms: Duration,
 }
 
 pub enum Environment {
@@ -111,5 +151,32 @@ impl TryFrom<String> for Environment {
                 other
             )),
         }
+    }
+}
+
+// Add these modules for custom deserialization
+mod url_format {
+    use reqwest::Url;
+    use serde::{Deserialize, Deserializer, de::Error};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Url, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Url::parse(&s).map_err(D::Error::custom)
+    }
+}
+
+mod subscriber_email_format {
+    use crate::domain::SubscriberEmail;
+    use serde::{Deserialize, Deserializer, de::Error};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<SubscriberEmail, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        SubscriberEmail::parse(s).map_err(D::Error::custom)
     }
 }
