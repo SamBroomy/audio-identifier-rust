@@ -1,3 +1,4 @@
+use reqwest::Url;
 use secrecy::SecretString;
 use server::{
     configuration::{DatabaseSettings, Settings},
@@ -33,9 +34,11 @@ impl TestApp {
     #[instrument(name = "Spawning Test App")]
     pub async fn spawn_app() -> TestApp {
         LazyLock::force(&TRACING);
+        let mut config = Settings::new().expect("Failed to read configuration");
         // Launch a mock server to stand in for Postmark's API
         let email_server = MockServer::start().await;
-        let (container, config) = setup_database().await;
+        config.email_client_cfg.base_url = Url::parse(&email_server.uri()).unwrap();
+        let container = setup_database(&mut config).await;
 
         // Launch the application as a background task
         let application = Application::build(config.clone())
@@ -75,7 +78,7 @@ impl TestApp {
 }
 
 /// Starts a Postgres container and configures database settings.
-async fn setup_database() -> (ContainerAsync<Postgres>, Settings) {
+async fn setup_database(config: &mut Settings) -> ContainerAsync<Postgres> {
     const DB_PASSWORD: &str = "password";
 
     let container = postgres::Postgres::default()
@@ -88,7 +91,6 @@ async fn setup_database() -> (ContainerAsync<Postgres>, Settings) {
     let host_port = container.get_host_port_ipv4(5432).await.unwrap();
 
     // Create app configuration
-    let mut config = Settings::new().expect("Failed to read configuration");
     config.database_cfg.database_name = format!("test_{}", Uuid::new_v4());
     config.database_cfg.host = "127.0.0.1".into();
     config.database_cfg.require_ssl = false;
@@ -100,7 +102,7 @@ async fn setup_database() -> (ContainerAsync<Postgres>, Settings) {
     // Initialize database
     initialize_database(&config.database_cfg).await;
 
-    (container, config)
+    container
 }
 
 /// Creates database and runs migrations.

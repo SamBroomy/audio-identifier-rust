@@ -39,9 +39,9 @@ check-sqlx:
 setup-database: check-sqlx
     sqlx database create
     sqlx migrate run
-    cargo sqlx prepare
+    cargo sqlx prepare --all
 
-db_run: start-postgres
+db_run: start-postgres setup-database
 
 dev: db_run
     docker compose up -d --build
@@ -49,7 +49,7 @@ dev: db_run
 down:
     docker compose down
 
-restart:
+reload-server:
     docker compose build app
     docker compose up -d app
 

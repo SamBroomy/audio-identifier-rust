@@ -19,6 +19,7 @@ repos:
         stages: [pre-commit]
       - id: end-of-file-fixer
         stages: [pre-commit]
+        exclude: '\.sql$'
       - id: mixed-line-ending
         stages: [pre-commit]
       - id: trailing-whitespace

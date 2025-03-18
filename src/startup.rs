@@ -3,7 +3,6 @@ use axum::{
     http::{HeaderName, Request},
     routing::{get, post},
 };
-use sqlx::PgPool;
 use std::time::Duration;
 use tokio::{net::TcpListener, signal};
 use tower::ServiceBuilder;
@@ -18,6 +17,7 @@ use crate::{
     configuration::Settings,
     email_client::EmailClient,
     routes::{health_check, song, subscribe},
+    state::AppState,
 };
 
 const REQUEST_ID_HEADER: &str = "x-request-id";
@@ -40,7 +40,7 @@ impl Application {
         debug!("Database configuration: {:?}", database_cfg);
         let connection_pool = database_cfg.get_pg_pool();
         debug!("Email client configuration: {:?}", email_client_cfg);
-        let sender_email = EmailClient::try_from(email_client_cfg).expect("Invalid config");
+        let email_client = EmailClient::try_from(email_client_cfg).expect("Invalid config");
 
         let listener = application_cfg.listener().await?;
         debug!(
@@ -48,7 +48,11 @@ impl Application {
             listener.local_addr().unwrap().port()
         );
 
-        let app = Self::get_router(connection_pool, sender_email).await;
+        let app = Self::get_router(AppState {
+            db: connection_pool,
+            email_client,
+        })
+        .await;
 
         Ok(Self { listener, app })
     }
@@ -57,7 +61,7 @@ impl Application {
         self.listener.local_addr().unwrap().port()
     }
 
-    pub async fn get_router(connection: PgPool, email_client: EmailClient) -> axum::Router {
+    pub async fn get_router(app_state: AppState) -> axum::Router {
         let x_request_id = HeaderName::from_static(REQUEST_ID_HEADER);
         let middleware = ServiceBuilder::new()
             .layer(SetRequestIdLayer::new(
@@ -88,8 +92,7 @@ impl Application {
             .route("/health_check", get(health_check))
             .route("/songs", post(song))
             .route("/subscriptions", post(subscribe))
-            .with_state(connection)
-            .with_state(email_client)
+            .with_state(app_state)
             .layer(middleware)
             .layer(TimeoutLayer::new(Duration::from_secs(5)))
     }

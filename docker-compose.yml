@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${APP_APPLICATION__PORT}:8000"
+      - "${APP_APPLICATION__PORT}:8080"
     depends_on:
       postgres:
         condition: service_healthy
