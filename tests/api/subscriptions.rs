@@ -133,3 +133,22 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
         );
     }
 }
+
+#[tokio::test]
+async fn subscribe_fails_if_there_is_a_fatal_database_error() {
+    // Arrange
+    let app = TestApp::spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    // Simulate a fatal database error
+    sqlx::query!("ALTER TABLE subscriptions DROP COLUMN email")
+        .execute(&app.db_pool)
+        .await
+        .expect("Failed to drop email column");
+
+    // Act
+    let response = app.post_subscriptions(body.into()).await;
+
+    // Assert
+    assert_eq!(500, response.status().as_u16());
+}
