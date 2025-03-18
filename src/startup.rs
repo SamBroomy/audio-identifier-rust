@@ -16,7 +16,7 @@ use tracing::{debug, error, info, info_span, instrument};
 use crate::{
     configuration::Settings,
     email_client::EmailClient,
-    routes::{health_check, song, subscribe},
+    routes::{confirm, health_check, song, subscribe},
     state::AppState,
 };
 
@@ -51,6 +51,7 @@ impl Application {
         let app = Self::get_router(AppState {
             db: connection_pool,
             email_client,
+            base_url: application_cfg.base_url,
         })
         .await;
 
@@ -92,6 +93,7 @@ impl Application {
             .route("/health_check", get(health_check))
             .route("/songs", post(song))
             .route("/subscriptions", post(subscribe))
+            .route("/subscriptions/confirm", get(confirm))
             .with_state(app_state)
             .layer(middleware)
             .layer(TimeoutLayer::new(Duration::from_secs(5)))

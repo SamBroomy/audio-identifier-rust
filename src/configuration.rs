@@ -103,6 +103,8 @@ pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
+    #[serde(deserialize_with = "url_format::deserialize")]
+    pub base_url: Url,
 }
 
 impl ApplicationSettings {

@@ -8,7 +8,6 @@ use crate::helpers::TestApp;
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     let app = TestApp::spawn_app().await;
-
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
     Mock::given(path("/email"))
@@ -24,9 +23,27 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 }
 
 #[tokio::test]
+async fn subscribe_sends_a_confirmation_email_with_a_link() {
+    let app = TestApp::spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let confirmation_links = app.get_confirmation_link(email_request);
+
+    assert_eq!(confirmation_links.html, confirmation_links.plain_text);
+}
+
+#[tokio::test]
 async fn subscribe_persists_the_new_subscriber() {
     let app = TestApp::spawn_app().await;
-
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
     Mock::given(path("/email"))

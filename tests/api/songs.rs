@@ -3,8 +3,6 @@ use crate::helpers::TestApp;
 #[tokio::test]
 async fn songs_returns_a_200_for_valid_form_data() {
     let app = TestApp::spawn_app().await;
-    let client = reqwest::Client::new();
-
     let body = "title=My%20Song&artist=Me";
 
     let response = app.post_songs(body.into()).await;

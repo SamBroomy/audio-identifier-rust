@@ -28,6 +28,12 @@ pub struct TestApp {
     pub client: reqwest::Client,
     _container: ContainerAsync<Postgres>,
 }
+
+pub struct ConfirmationLinks {
+    pub html: Url,
+    pub plain_text: Url,
+}
+
 impl TestApp {
     /// Spin up an instance of our application
     /// and returns its address (i.e. http://localhost:XXXX)
@@ -74,6 +80,27 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+
+    pub fn get_confirmation_link(&self, request: &wiremock::Request) -> ConfirmationLinks {
+        let email_body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+
+        let get_links = |s: &str| {
+            let links = linkify::LinkFinder::new()
+                .links(s)
+                .filter(|l| *l.kind() == linkify::LinkKind::Url)
+                .collect::<Vec<_>>();
+            assert_eq!(links.len(), 1);
+            let raw_link = links[0].as_str().to_owned();
+            let mut confirmation_link = Url::parse(&raw_link).unwrap();
+            assert_eq!(confirmation_link.host_str().unwrap(), "127.0.0.1");
+            confirmation_link.set_port(Some(self.port)).unwrap();
+            confirmation_link
+        };
+
+        let html = get_links(email_body["HtmlBody"].as_str().unwrap());
+        let plain_text = get_links(email_body["TextBody"].as_str().unwrap());
+        ConfirmationLinks { html, plain_text }
     }
 }
 
