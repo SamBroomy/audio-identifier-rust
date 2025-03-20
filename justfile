@@ -91,3 +91,7 @@ subscribe:
     @curl --request POST \
     --data 'name=Hello%20World&email=hello%40world.com' \
     http://${APP_APPLICATION__HOST}:${APP_APPLICATION__PORT}/subscriptions --verbose
+
+subscribe-confirm token:
+    @curl --request GET \
+    "http://${APP_APPLICATION__HOST}:${APP_APPLICATION__PORT}/subscriptions/confirm?subscription_token={{ token }}" --verbose

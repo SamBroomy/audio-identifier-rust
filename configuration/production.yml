@@ -2,4 +2,9 @@ application:
   host: 0.0.0.0
 database:
   host: "postgres"
-  require_ssl: true
+  require_ssl: false
+email_client:
+  base_url: "https://api.postmarkapp.com"
+  sender_email: "test@gmail.com"
+  authorization_token: "POSTMARK_API_TEST"
+  timeout_ms: 10000

@@ -16,7 +16,7 @@ use tracing::{debug, error, info, info_span, instrument};
 use crate::{
     configuration::Settings,
     email_client::EmailClient,
-    routes::{confirm, health_check, song, subscribe},
+    routes::{confirm, health_check, publish_newsletter, song, subscribe},
     state::AppState,
 };
 
@@ -94,6 +94,7 @@ impl Application {
             .route("/songs", post(song))
             .route("/subscriptions", post(subscribe))
             .route("/subscriptions/confirm", get(confirm))
+            .route("/newsletters", post(publish_newsletter))
             .with_state(app_state)
             .layer(middleware)
             .layer(TimeoutLayer::new(Duration::from_secs(5)))

@@ -1,5 +1,6 @@
 use reqwest::Url;
 use secrecy::SecretString;
+use serde_json::Value;
 use server::{
     configuration::{DatabaseSettings, Settings},
     startup::Application,
@@ -77,6 +78,20 @@ impl TestApp {
             .post(format!("{}/{}", &self.address, path))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
+    pub async fn post_newsletter(&self, body: Value) -> reqwest::Response {
+        self.post_json("newsletters", body).await
+    }
+
+    async fn post_json(&self, path: &str, body: Value) -> reqwest::Response {
+        self.client
+            .post(format!("{}/{}", &self.address, path))
+            .header("Content-Type", "application/json")
+            .json(&body)
             .send()
             .await
             .expect("Failed to execute request.")

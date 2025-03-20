@@ -3,7 +3,7 @@ use chrono::Utc;
 use rand::{Rng, distr::Alphanumeric, rng};
 use reqwest::Url;
 use sqlx::{Executor, Postgres, Transaction};
-use tracing::instrument;
+use tracing::{debug, instrument};
 use uuid::Uuid;
 
 use crate::{domain::NewSubscriber, email_client::EmailClient};
@@ -74,9 +74,10 @@ pub async fn send_confirmation_email(
         "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
         confirmation_link
     );
+    debug!("Confirmation link: {}", confirmation_link);
 
     email_client
-        .send_email(new_subscriber.email, "Welcome!", &html_body, &plain_body)
+        .send_email(&new_subscriber.email, "Welcome!", &html_body, &plain_body)
         .await
         .context("Failed to send email")
 }

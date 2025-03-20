@@ -1,5 +1,6 @@
 use reqwest::{Client, Url};
 use secrecy::{ExposeSecret, SecretString};
+use tracing::warn;
 
 use crate::{configuration::EmailClientSettings, domain::SubscriberEmail};
 
@@ -30,7 +31,7 @@ impl EmailClient {
 
     pub async fn send_email(
         &self,
-        recipient: SubscriberEmail,
+        recipient: &SubscriberEmail,
         subject: &str,
         html_content: &str,
         text_content: &str,
@@ -44,7 +45,8 @@ impl EmailClient {
             text_body: text_content,
         };
 
-        self.http_client
+        let response = self
+            .http_client
             .post(url)
             .header(
                 "X-Postmark-Server-Token",
@@ -54,6 +56,7 @@ impl EmailClient {
             .send()
             .await?
             .error_for_status()?;
+        warn!("{:?}", response);
         Ok(())
     }
 }
@@ -157,7 +160,7 @@ mod tests {
             .await;
 
         let _ = email_client
-            .send_email(email(), &subject(), &content(), &content())
+            .send_email(&email(), &subject(), &content(), &content())
             .await;
         // Mock server will assert on drop
     }
@@ -176,7 +179,7 @@ mod tests {
 
         // Act
         let outcome = email_client
-            .send_email(email(), &subject(), &content(), &content())
+            .send_email(&email(), &subject(), &content(), &content())
             .await;
 
         // Assert
@@ -198,7 +201,7 @@ mod tests {
 
         // Act
         let outcome = email_client
-            .send_email(email(), &subject(), &content(), &content())
+            .send_email(&email(), &subject(), &content(), &content())
             .await;
 
         // Assert
@@ -220,7 +223,7 @@ mod tests {
 
         // Act
         let outcome = email_client
-            .send_email(email(), &subject(), &content(), &content())
+            .send_email(&email(), &subject(), &content(), &content())
             .await;
 
         // Assert

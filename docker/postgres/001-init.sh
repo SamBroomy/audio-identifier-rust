@@ -33,20 +33,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${DB_USER};
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO ${DB_USER};
-
--- Ensure _sqlx_migrations table is readable
--- SQLx needs to be able to read the migration status
-CREATE TABLE IF NOT EXISTS _sqlx_migrations (
-    version BIGINT PRIMARY KEY,
-    description TEXT NOT NULL,
-    installed_on TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    success BOOLEAN NOT NULL,
-    checksum BYTEA NOT NULL,
-    execution_time BIGINT NOT NULL
-);
-GRANT SELECT ON _sqlx_migrations TO ${DB_USER};
 EOF
 
 echo "Database setup complete"
-echo "App user: ${DB_USER} - For application connections"
+echo "App user: ${DB_USER} - For application connections (data access only)"
 echo "Admin user (postgres): Use for migrations and administration"

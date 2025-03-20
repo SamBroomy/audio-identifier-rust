@@ -1,3 +1,5 @@
+use core::fmt;
+
 use validator::ValidateEmail;
 
 #[derive(Debug, Clone)]
@@ -10,6 +12,12 @@ impl SubscriberEmail {
         } else {
             Err(format!("Failed to parse subscriber email: '{}'", s))
         }
+    }
+}
+
+impl fmt::Display for SubscriberEmail {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
